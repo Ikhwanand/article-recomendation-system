@@ -1,0 +1,6 @@
+.env
+venv/
+src/__pycache__/
+.vscode/
+data/data.csv
+data/filtered_data.csv
