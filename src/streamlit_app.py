@@ -16,12 +16,26 @@ from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 
 from streamlit_feedback import streamlit_feedback
 from trubrics.integrations.streamlit import FeedbackCollector
-import hopsworks
+
 
 from constants import PATH_EMBEDDINGS, PATH_SENTENCES, PATH_DATA_BASE
 from sumy.parsers.plaintext import PlaintextParser
 from sumy.nlp.tokenizers import Tokenizer
 from sumy.summarizers.lsa import LsaSummarizer
+
+
+import requests
+from io import BytesIO
+from PyPDF2 import PdfReader
+from urllib.parse import urlparse
+
+from langchain.document_loaders import PyPDFLoader
+from langchain.embeddings import HuggingFaceEmbeddings
+from langchain.vectorstores import FAISS
+from langchain.chains import ConversationalRetrievalChain
+
+from streamlit_chat import message
+from chat import main as chat_page
 
 import os 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -60,7 +74,7 @@ except:
 #         pass
 #     return FeedbackCollector(project="paper-recommender-system")
 
-
+st.set_page_config(page_title="Paper Recommender System", page_icon="📜", layout='centered')
 
 def get_paper_abstracts() -> dict:
     """
@@ -205,20 +219,67 @@ def generate_summary(abstract):
     return summary_text
 
 
+def get_paper_id(abstract_url):
+    parsed = urlparse(abstract_url)
+    path = parsed.path
+    parts = path.split('/')
+    paper_id = parts[-1]
+    return paper_id 
+
+
+def build_pdf_url(paper_id):
+    return f"https://arxiv.org/pdf/{paper_id}.pdf"
+
+
+
+
+def get_paper_content(abstract_url):
+    paper_id = get_paper_id(abstract_url)
+    pdf_url = build_pdf_url(paper_id)
+    response = requests.get(pdf_url)
+    if response.status_code != 200:
+        return "Failed to fetch PDF content."
+    try:
+        pdf_content_bytes = response.content
+        return pdf_content_bytes
+    except Exception as e:
+        return f"Failed to extract text from PDF: {str(e)}"
+
+
+DB_FAISS_PATH = "./vectorstore/db_faiss"
+class FileIngestor:
+    def __init__(self, pdf_content_bytes):
+        self.pdf_content_bytes = pdf_content_bytes
+
+    def handle_file_and_ingest(self):
+        # Create a temporary file to hold the PDF content
+        import tempfile
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
+            tmp_file.write(self.pdf_content_bytes)
+            tmp_file_path = tmp_file.name
+
+        # Load the PDF using PyPDFLoader
+        loader = PyPDFLoader(file_path=tmp_file_path)
+        data = loader.load()
+
+        # Create embeddings using Sentence Transformers
+        embeddings = HuggingFaceEmbeddings(model_name='sentence-transformers/all-MiniLM-L6-v2')
+
+
+        db = FAISS.from_documents(data, embeddings)
+        db.save_local(DB_FAISS_PATH)
+        return db
+
 
 ############ Main Function #########
 
 
-def main() -> None:
+def main_page() -> None:
     html_temp = """
                 <div style="background-color:{};padding:1px">
                 
                 </div>
                 """
-    
-    st.set_page_config(page_title="Paper Recommender System",
-                       page_icon="📜",
-                       layout='centered')
     
     st.title("Paper Recommender System: AI-powered Paper Recommendations")
     
@@ -238,6 +299,8 @@ def main() -> None:
             
             To address this, we have created a paper recommender system that leverages
             the power of AI to provide personalized recommendations based on your interests.
+            
+            You can also chat with the AI to ask questions about the papers you are interested in that support file PDF or Docs.
             """
         )
         st.markdown(html_temp.format('rgba(55, 53, 47, 0.16)'),
@@ -253,6 +316,14 @@ def main() -> None:
         if option == 'Using abstracts':
             st.info("This option is coming soon. 'Using titles' has been selected by default.")
             option = 'Using titles' # set to default or another option
+            
+        
+        # You comment all code below if you don't want to use feature chat with AI for low cost of memory
+        if st.button(f"ChatPDF with AI"):
+            # Set query parameters for chat page
+            st.query_params.from_dict({"page":"chat"})
+                    # Prevent the rest of the page from being executed
+            st.stop()
             
         st.markdown("""
                     # How it work
@@ -337,21 +408,21 @@ def main() -> None:
                 # st.markdown(paper_abstracts) # Optionally display the full abstract
                 paper_url = paper_urls.get(paper_title, "URL not found")
                 st.markdown(f"Read the full paper here: {paper_url}")
-        
-        
-        # If feedback has not been submitted for current recommendations
-        # if not st.session_state['feedback_submitted']:
-        #     # Display feedback form
-        #     st.subheader('How satisfied are you with these recommendations?')
-        #     feedback = collector.st_feeback(
-        #         feedback_type='faces', open_feedback_label="Optionally, provide some detail regarding the accuracy of these recommendations."
-        #     )
-            
-        #     # if user submits feedback
-        #     if feedback:
-        #         # Update feedback submission status in session state to True, hiding the feedback form until new recommendations are made
-        #         st.session_state['feedback_submitted'] = True
+                
                 
 
+# Main function to route pages
+def main():
+    params = st.query_params.get("page", "main")
+    print(params)
+    
+    if params == "chat":
+        chat_page()
+    else:
+        main_page()
+
+
+
+                
 if __name__=='__main__':
     main()      

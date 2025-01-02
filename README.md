@@ -1,4 +1,4 @@
-# Article Recommendation System
+# Article Recommendation System and ChatPDF with AI
 
 This project implements an article recommendation system.
 
