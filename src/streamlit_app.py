@@ -74,7 +74,7 @@ except:
 #         pass
 #     return FeedbackCollector(project="paper-recommender-system")
 
-st.set_page_config(page_title="Paper Recommender System", page_icon="📜", layout='centered')
+
 
 def get_paper_abstracts() -> dict:
     """
@@ -280,7 +280,7 @@ def main_page() -> None:
                 
                 </div>
                 """
-    
+  
     st.title("Paper Recommender System: AI-powered Paper Recommendations")
     
     # Create a feedback collector
@@ -361,13 +361,13 @@ def main_page() -> None:
     # Initializations for session state variables
     if 'paper_recommendations' not in st.session_state:
         st.session_state['paper_recommendations'] = []
-    if 'feedback_submitted' not in st.session_state:
-        st.session_state['feedback_submitted'] = False
+    
     
     # Include a form to receive a topic of interest from the user
     form = st.form(key='my_form')
     topic_of_interest = form.text_input(label='Enter your topic of interest here 👇',
                                         placeholder="I'm interested in papers about Transformers in Computer Vision")
+    number_of_paper = form.number_input(label='Number of papers to recommend', min_value=1, max_value=10, value=5)
     submit = form.form_submit_button(label='Recommend papers')
     
     # If user submits a topic of interest
@@ -382,7 +382,7 @@ def main_page() -> None:
             )
             
             # Get the indices of the top 4 papers with highest consine scores
-            topic_of_interest = torch.topk(cosine_scores, dim=0, k=4, sorted=True)
+            topic_of_interest = torch.topk(cosine_scores, dim=0, k=number_of_paper, sorted=True)
             
             # Store the top 4 paper titles into session state to keep them persistent
             st.session_state['paper_recommendations'] = [
@@ -413,6 +413,7 @@ def main_page() -> None:
 
 # Main function to route pages
 def main():
+    st.set_page_config(page_title="AI Research Assistant", page_icon=":brain:", layout='wide')
     params = st.query_params.get("page", "main")
     print(params)
     

@@ -211,7 +211,7 @@ def main():
         documents = st.file_uploader(
             label='Upload PDFs',
             label_visibility='hidden',
-            type=['pdf'],
+            type=['pdf', 'docx'],
             accept_multiple_files=True
         )
         if st.button('Submit and Process'):
