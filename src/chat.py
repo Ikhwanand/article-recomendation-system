@@ -131,7 +131,7 @@ def get_conversational_chain():
     """
 
     prompt_temp = '''
-    Answer the question from the provided context. Try to answer in as detailed manner as possible from the provided context.
+    Answer the question from the provided context as best you can in English or Bahasa Indonesia. Try to answer in as detailed manner as possible from the provided context.
     If the answer to the question is not known from the provided context, then dont provide wrong answers, in that case just say,
     'Answer to the question is not available in the provided document. Feel free to ask question from the provided context.'
     Context:\n{context}?\n
